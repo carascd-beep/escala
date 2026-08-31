@@ -25,7 +25,7 @@ services:
     name: escala-coroinhas-streamlit
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r streamlit_app/requirements.txt
     startCommand: streamlit run streamlit_app/app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true
     envVars:
       - key: API_BASE_URL
