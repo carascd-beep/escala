@@ -1,4 +1,5 @@
 from pathlib import Path
+from zipfile import ZipFile
 
 from app.utils.cadastro_import import (
     availability_label,
@@ -43,3 +44,21 @@ def test_excel_path_must_exist():
         assert str(missing) in str(error)
     else:
         raise AssertionError("A importação deveria rejeitar um arquivo inexistente")
+
+
+def test_rows_with_empty_cells_keep_column_positions(tmp_path):
+    source = tmp_path / "empty-cell.xlsx"
+    with ZipFile(EXCEL_PATH) as original, ZipFile(source, "w") as target:
+        for item in original.infolist():
+            data = original.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                data = data.replace(
+                    b'<c r="D2" t="s"><v>54</v></c>',
+                    b'',
+                    1,
+                )
+            target.writestr(item, data)
+
+    records = read_cadastro_excel(source)
+    assert records[0]["availability"] == ""
+    assert records[0]["experience"] == 3

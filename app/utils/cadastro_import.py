@@ -4,6 +4,7 @@ from typing import Any
 from unicodedata import normalize
 from zipfile import ZipFile
 from xml.etree import ElementTree
+import re
 
 NAMESPACE = {"main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 AVAILABILITY_LABELS = {"fs": "Fim de Semana", "td": "Todo Dia"}
@@ -33,13 +34,19 @@ def read_cadastro_excel(path: str | Path) -> list[dict[str, Any]]:
         sheet = ElementTree.fromstring(book.read("xl/worksheets/sheet1.xml"))
         rows = []
         for row in sheet.findall(".//main:row", NAMESPACE):
-            values = []
+            values = [""] * 5
             for cell in row.findall("main:c", NAMESPACE):
                 value = cell.find("main:v", NAMESPACE)
                 text = value.text if value is not None and value.text else ""
                 if cell.get("t") == "s":
                     text = strings[int(text)]
-                values.append(text.strip())
+                match = re.match(r"([A-Z]+)", cell.get("r", ""))
+                if match:
+                    index = 0
+                    for char in match.group(1):
+                        index = index * 26 + ord(char) - ord("A") + 1
+                    if 1 <= index <= len(values):
+                        values[index - 1] = text.strip()
             rows.append(values)
     records = []
     for full_name, birth_date, function, availability, experience in rows[1:]:
