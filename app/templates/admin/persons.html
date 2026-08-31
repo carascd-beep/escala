@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Pessoas - Administração{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1><i class="bi bi-people"></i> Pessoas</h1>
+        <p class="text-muted">Gerenciar coroinhas, acólitos e cerimoniários</p>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPersonModal">
+            <i class="bi bi-plus-circle"></i> Nova Pessoa
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Tipo</th>
+                        <th>Telefone</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for person in persons %}
+                    <tr>
+                        <td>{{ person.display_name }}</td>
+                        <td>
+                            <span class="badge badge-{{ person.server_type.value }}">
+                                {{ person.server_type.value|capitalize }}
+                            </span>
+                        </td>
+                        <td>{{ person.phone or '-' }}</td>
+                        <td>
+                            {% if person.is_active %}
+                            <span class="badge bg-success">Ativo</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editPerson({{ person.id }})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            {% if person.is_active %}
+                            <button class="btn btn-sm btn-outline-danger" onclick="deactivatePerson({{ person.id }})">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                            {% else %}
+                            <button class="btn btn-sm btn-outline-success" onclick="activatePerson({{ person.id }})">
+                                <i class="bi bi-check-circle"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova Pessoa -->
+<div class="modal fade" id="newPersonModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nova Pessoa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="newPersonForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome Completo</label>
+                        <input type="text" class="form-control" name="full_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nome para Exibição</label>
+                        <input type="text" class="form-control" name="display_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" name="server_type" required>
+                            {% for type in server_types %}
+                            <option value="{{ type.value }}">{{ type.value|capitalize }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telefone</label>
+                        <input type="text" class="form-control" name="phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observações</label>
+                        <textarea class="form-control" name="observations" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.getElementById('newPersonForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    const response = await fetch('/api/pessoas', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    });
+    
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Erro ao criar pessoa');
+    }
+});
+
+async function deactivatePerson(id) {
+    if (!confirm('Deseja desativar esta pessoa?')) return;
+    
+    const response = await fetch(`/api/pessoas/${id}`, {method: 'DELETE'});
+    if (response.ok) {
+        location.reload();
+    }
+}
+
+async function activatePerson(id) {
+    const response = await fetch(`/api/pessoas/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({is_active: true})
+    });
+    if (response.ok) {
+        location.reload();
+    }
+}
+</script>
+{% endblock %}
+{% endblock %}

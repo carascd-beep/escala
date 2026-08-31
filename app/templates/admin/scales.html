@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Escalas - Administração{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1><i class="bi bi-calendar-check"></i> Escalas</h1>
+        <p class="text-muted">Gerenciar escalas de serviço</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Data Inicial</label>
+                <input type="date" class="form-control" name="start_date" value="{{ start_date }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Data Final</label>
+                <input type="date" class="form-control" name="end_date" value="{{ end_date }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#generateModal">
+                    <i class="bi bi-magic"></i> Gerar Missas
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% for scale in scales %}
+<div class="card mb-3 mass-card {% if scale.published %}scale-published{% endif %}">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <h5 class="mb-1">
+                    <i class="bi bi-calendar-event"></i>
+                    {{ scale.mass.date.strftime('%d/%m/%Y') }} - {{ scale.mass.time }}
+                </h5>
+                {% if scale.mass.celebration %}
+                <small class="text-muted">{{ scale.mass.celebration }}</small>
+                {% endif %}
+            </div>
+            <div>
+                {% if scale.published %}
+                <span class="badge bg-success">Publicada</span>
+                {% else %}
+                <span class="badge bg-warning">Rascunho</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row">
+            {% for type in server_types %}
+            <div class="col-md-4">
+                <h6 class="text-muted">
+                    <span class="badge badge-{{ type.value }}">{{ type.value|capitalize }}</span>
+                </h6>
+                <ul class="list-unstyled">
+                    {% set assignments = scale.assignments|selectattr("person.server_type", "equalto", type)|list %}
+                    {% if assignments %}
+                        {% for assignment in assignments %}
+                        <li class="d-flex justify-content-between align-items-center mb-2">
+                            <span>{{ assignment.person.display_name }}</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="removeAssignment({{ assignment.id }})">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </li>
+                        {% endfor %}
+                    {% else %}
+                        <li class="text-muted small">Nenhum escalado</li>
+                    {% endif %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-3">
+            <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#assign{{ scale.id }}">
+                <i class="bi bi-plus-circle"></i> Adicionar Pessoa
+            </button>
+            {% if not scale.published %}
+            <form method="POST" action="/admin/escalas/{{ scale.id }}/publicar" class="d-inline">
+                <button type="submit" class="btn btn-sm btn-success">
+                    <i class="bi bi-check-circle"></i> Publicar
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        
+        <div class="collapse mt-3" id="assign{{ scale.id }}">
+            <form method="POST" action="/admin/escalas/{{ scale.id }}/atribuir" class="row g-2">
+                <div class="col-md-8">
+                    <select class="form-select" name="person_id" required>
+                        <option value="">Selecione uma pessoa</option>
+                        {% for person in persons %}
+                        <option value="{{ person.id }}">{{ person.display_name }} ({{ person.server_type.value|capitalize }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">Adicionar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Nenhuma escala encontrada para o período selecionado.
+</div>
+{% endfor %}
+
+<!-- Modal Gerar Missas -->
+<div class="modal fade" id="generateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Gerar Missas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="/admin/escalas/gerar">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Data Inicial</label>
+                        <input type="date" class="form-control" name="start_date" value="{{ start_date }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Data Final</label>
+                        <input type="date" class="form-control" name="end_date" value="{{ end_date }}" required>
+                    </div>
+                    <small class="text-muted">O sistema irá gerar missas baseadas nos horários ativos cadastrados.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Gerar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+async function removeAssignment(id) {
+    if (!confirm('Remover esta atribuição?')) return;
+    
+    const response = await fetch(`/api/escalas/atribuicoes/${id}`, {method: 'DELETE'});
+    if (response.ok) {
+        location.reload();
+    }
+}
+</script>
+{% endblock %}
+{% endblock %}

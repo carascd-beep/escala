@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Administração{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
+        <p class="text-muted">Bem-vindo, {{ user }}</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="bi bi-people" style="font-size: 2rem; color: var(--primary-color);"></i>
+                <h3 class="mt-2">{{ persons_count }}</h3>
+                <p class="text-muted mb-0">Servidores Ativos</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="bi bi-calendar-event" style="font-size: 2rem; color: var(--accent-color);"></i>
+                <h3 class="mt-2">{{ masses|length }}</h3>
+                <p class="text-muted mb-0">Missas Próximas</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="bi bi-calendar-check" style="font-size: 2rem; color: #28a745;"></i>
+                <h3 class="mt-2">{{ masses|selectattr("scale.published")|list|length }}</h3>
+                <p class="text-muted mb-0">Escalas Publicadas</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-calendar3"></i> Próximas Missas</h5>
+            </div>
+            <div class="card-body">
+                {% if masses %}
+                <div class="list-group list-group-flush">
+                    {% for mass in masses[:10] %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ mass.date.strftime('%d/%m/%Y') }}</strong> às {{ mass.time }}
+                                {% if mass.celebration %}
+                                <br><small class="text-muted">{{ mass.celebration }}</small>
+                                {% endif %}
+                            </div>
+                            <div>
+                                {% if mass.scale and mass.scale.published %}
+                                <span class="badge bg-success">Publicada</span>
+                                {% elif mass.scale %}
+                                <span class="badge bg-warning">Rascunho</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Sem escala</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted text-center mb-0">Nenhuma missa encontrada</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-lightning"></i> Ações Rápidas</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/admin/pessoas" class="btn btn-outline-primary">
+                        <i class="bi bi-people"></i> Gerenciar Pessoas
+                    </a>
+                    <a href="/admin/horarios" class="btn btn-outline-primary">
+                        <i class="bi bi-clock"></i> Gerenciar Horários
+                    </a>
+                    <a href="/admin/escalas" class="btn btn-outline-primary">
+                        <i class="bi bi-calendar-check"></i> Gerenciar Escalas
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

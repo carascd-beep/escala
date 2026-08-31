@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Escala de Serviço - Paróquia São João Bosco{% endblock %}
+
+{% block extra_css %}
+<style>
+    .scale-day {
+        background-color: #fff;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .mass-time {
+        font-size: 1.5rem;
+        color: var(--primary-color);
+        font-weight: bold;
+    }
+    
+    .person-list {
+        list-style: none;
+        padding-left: 0;
+    }
+    
+    .person-list li {
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .person-list li:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1><i class="bi bi-calendar-check"></i> Escala de Serviço</h1>
+        <p class="text-muted">Paróquia São João Bosco</p>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Data Inicial</label>
+                <input type="date" class="form-control" name="start_date" value="{{ start_date }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Data Final</label>
+                <input type="date" class="form-control" name="end_date" value="{{ end_date }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% set ns = namespace(current_date=none) %}
+{% for scale in scales %}
+    {% if scale.published %}
+        {% if ns.current_date != scale.mass.date %}
+            {% if ns.current_date is not none %}
+            </div>
+            {% endif %}
+            {% set ns.current_date = scale.mass.date %}
+            <div class="scale-day">
+                <h3 class="mb-3">
+                    <i class="bi bi-calendar-event"></i>
+                    {{ scale.mass.date.strftime('%A, %d de %B de %Y')|capitalize }}
+                </h3>
+                <hr>
+        {% endif %}
+        
+        <div class="mb-4">
+            <div class="d-flex align-items-center mb-2">
+                <i class="bi bi-clock" style="font-size: 1.5rem; color: var(--accent-color);"></i>
+                <span class="mass-time ms-2">{{ scale.mass.time }}</span>
+                {% if scale.mass.celebration %}
+                <span class="ms-3 text-muted">{{ scale.mass.celebration }}</span>
+                {% endif %}
+            </div>
+            
+            <div class="row">
+                {% for type in server_types %}
+                {% set assignments = scale.assignments|selectattr("person.server_type", "equalto", type)|list %}
+                {% if assignments %}
+                <div class="col-md-4">
+                    <h6 class="text-muted">
+                        <span class="badge badge-{{ type.value }}">{{ type.value|capitalize }}{% if assignments|length > 1 %}s{% endif %}</span>
+                    </h6>
+                    <ul class="person-list">
+                        {% for assignment in assignments %}
+                        <li>
+                            <i class="bi bi-person"></i> {{ assignment.person.display_name }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+{% endfor %}
+
+{% if ns.current_date is not none %}
+</div>
+{% endif %}
+
+{% if not scales %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> Nenhuma escala publicada encontrada para o período selecionado.
+</div>
+{% endif %}
+{% endblock %}
