@@ -278,3 +278,16 @@ class TestWebPages:
         response = client.get("/dashboard", follow_redirects=False)
         assert response.status_code == 303
         assert "/login" in response.headers["location"]
+
+    def test_list_person_includes_cadastro_fields(self):
+        client.post("/api/pessoas", json={
+            "full_name": "Pessoa Cadastro",
+            "display_name": "Pessoa",
+            "server_type": "coroinha",
+            "availability": "Todo Dia",
+            "experience": 2,
+        })
+        response = client.get("/api/pessoas")
+        assert response.status_code == 200
+        assert response.json()[0]["availability"] == "Todo Dia"
+        assert response.json()[0]["experience"] == 2

@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.routers import api, web, auth
+from pathlib import Path
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -22,11 +23,12 @@ app.include_router(web.router)
 @app.on_event("startup")
 async def startup_event():
     """Inicialização do banco de dados"""
-    from app.database import engine, Base
+    from app.database import engine, Base, ensure_schema
     from app.models import User, Person, MassSchedule, Mass, Scale, ScaleAssignment
     
     # Criar tabelas
     Base.metadata.create_all(bind=engine)
+    ensure_schema()
     
     # Criar admin inicial se não existir
     from app.database import SessionLocal
@@ -34,6 +36,11 @@ async def startup_event():
     
     db = SessionLocal()
     try:
+        from app.services.cadastro_service import import_cadastro_if_empty
+        cadastro_path = Path(__file__).parents[1] / "docs" / "CadastroCoroinhas.xlsx"
+        imported = import_cadastro_if_empty(db, cadastro_path) if cadastro_path.exists() else 0
+        if imported:
+            print(f"Cadastro inicial importado: {imported} pessoas")
         if not get_user_by_username(db, settings.ADMIN_USERNAME):
             create_user(
                 db,

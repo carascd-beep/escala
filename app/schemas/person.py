@@ -1,7 +1,7 @@
 """Schemas de Pessoa"""
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+from datetime import date, datetime
 from app.models.person import ServerType
 
 
@@ -10,6 +10,9 @@ class PersonBase(BaseModel):
     display_name: str
     server_type: ServerType
     phone: Optional[str] = None
+    birth_date: Optional[date] = None
+    availability: Optional[str] = None
+    experience: Optional[int] = None
     email: Optional[str] = None
     observations: Optional[str] = None
 
@@ -23,6 +26,9 @@ class PersonUpdate(BaseModel):
     display_name: Optional[str] = None
     server_type: Optional[ServerType] = None
     phone: Optional[str] = None
+    birth_date: Optional[date] = None
+    availability: Optional[str] = None
+    experience: Optional[int] = None
     email: Optional[str] = None
     observations: Optional[str] = None
     is_active: Optional[bool] = None

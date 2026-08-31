@@ -1,5 +1,5 @@
 """Modelo de Pessoa (Coroinhas, Acólitos, Cerimoniários)"""
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, Enum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
@@ -22,6 +22,9 @@ class Person(Base):
     display_name = Column(String(100), nullable=False)
     server_type = Column(Enum(ServerType), nullable=False)
     phone = Column(String(20), nullable=True)
+    birth_date = Column(Date, nullable=True)
+    availability = Column(String(20), nullable=True)
+    experience = Column(Integer, nullable=True)
     email = Column(String(100), nullable=True)
     observations = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)

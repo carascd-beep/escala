@@ -1,21 +1,52 @@
 """Configuração do banco de dados"""
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
 import os
 
 # Criar diretório data se não existir
-os.makedirs("data", exist_ok=True)
+if settings.DATABASE_URL.startswith("sqlite"):
+    os.makedirs("data", exist_ok=True)
+
+
+def database_url_options(database_url: str) -> dict:
+    """Prepara URL e opções específicas para SQLite ou PostgreSQL."""
+    if database_url.startswith(("postgres://", "postgresql://")):
+        url = database_url.replace("postgres://", "postgresql+psycopg2://", 1)
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        return {"url": url, "connect_args": {}}
+    return {"url": database_url, "connect_args": {"check_same_thread": False}}
+
+
+_database_options = database_url_options(settings.DATABASE_URL)
 
 engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Necessário para SQLite
+    _database_options["url"],
+    connect_args=_database_options["connect_args"]
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+
+def ensure_schema():
+    """Adiciona colunas novas sem apagar dados de bancos SQLite existentes."""
+    inspector = inspect(engine)
+    if "persons" not in inspector.get_table_names():
+        return
+
+    existing = {column["name"] for column in inspector.get_columns("persons")}
+    additions = {
+        "birth_date": "DATE",
+        "availability": "VARCHAR(20)",
+        "experience": "INTEGER",
+    }
+    with engine.begin() as connection:
+        for name, column_type in additions.items():
+            if name not in existing:
+                connection.execute(text(f"ALTER TABLE persons ADD COLUMN {name} {column_type}"))
 
 
 def get_db():

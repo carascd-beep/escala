@@ -21,14 +21,18 @@ def get_person(db: Session, person_id: int) -> Optional[Person]:
     return db.query(Person).filter(Person.id == person_id).first()
 
 
-def create_person(db: Session, full_name: str, display_name: str, server_type: ServerType, 
-                  phone: str = None, email: str = None, observations: str = None) -> Person:
+def create_person(db: Session, full_name: str, display_name: str, server_type: ServerType,
+                  phone: str = None, email: str = None, observations: str = None,
+                  birth_date=None, availability: str = None, experience: int = None) -> Person:
     """Cria nova pessoa"""
     person = Person(
         full_name=full_name,
         display_name=display_name,
         server_type=server_type,
         phone=phone,
+        birth_date=birth_date,
+        availability=availability,
+        experience=experience,
         email=email,
         observations=observations
     )

@@ -5,7 +5,7 @@ import os
 # Adicionar diretório raiz ao path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import engine, Base, SessionLocal
+from app.database import engine, Base, SessionLocal, ensure_schema
 from app.models import User, Person, MassSchedule, Mass, Scale, ScaleAssignment
 from app.services.auth_service import get_user_by_username, create_user
 from app.services.mass_service import get_mass_schedules, create_mass_schedule
@@ -17,6 +17,7 @@ def init_db():
     """Inicializa o banco de dados com dados padrão"""
     print("Criando tabelas...")
     Base.metadata.create_all(bind=engine)
+    ensure_schema()
     print("Tabelas criadas com sucesso!")
     
     db = SessionLocal()

@@ -11,6 +11,7 @@ from app.models.mass import Mass, DayOfWeek
 from app.models.scale import Scale, ScaleAssignment, AssignmentStatus
 from app.utils.security import decode_access_token
 
+
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="app/templates")
 
@@ -49,7 +50,7 @@ async def home(request: Request, db: Session = Depends(get_db)):
     
     masses = mass_service.get_masses_by_date_range(db, today, end_date)
     
-    return templates.TemplateResponse("public/home.html", {
+    return templates.TemplateResponse(request=request, name="public/home.html", context={
         "request": request,
         "masses": masses,
         "today": today
@@ -87,7 +88,7 @@ async def public_scale(
     
     persons = person_service.get_persons(db, is_active=True)
     
-    return templates.TemplateResponse("public/scale.html", {
+    return templates.TemplateResponse(request=request, name="public/scale.html", context={
         "request": request,
         "scales": scales,
         "start_date": start_date,
@@ -103,7 +104,7 @@ async def public_scale(
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Página de login"""
-    return templates.TemplateResponse("admin/login.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="admin/login.html", context={"request": request})
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
@@ -119,7 +120,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
     masses = mass_service.get_masses_by_date_range(db, today, end_date)
     persons_count = len(person_service.get_persons(db, is_active=True))
     
-    return templates.TemplateResponse("admin/dashboard.html", {
+    return templates.TemplateResponse(request=request, name="admin/dashboard.html", context={
         "request": request,
         "user": user,
         "masses": masses,
@@ -136,8 +137,7 @@ async def admin_persons(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/login", status_code=303)
     
     persons = person_service.get_persons(db)
-    
-    return templates.TemplateResponse("admin/persons.html", {
+    return templates.TemplateResponse(request=request, name="admin/persons.html", context={
         "request": request,
         "user": user,
         "persons": persons,
@@ -154,7 +154,7 @@ async def admin_schedules(request: Request, db: Session = Depends(get_db)):
     
     schedules = mass_service.get_mass_schedules(db)
     
-    return templates.TemplateResponse("admin/schedules.html", {
+    return templates.TemplateResponse(request=request, name="admin/schedules.html", context={
         "request": request,
         "user": user,
         "schedules": schedules,
@@ -182,7 +182,7 @@ async def admin_scales(
     scales = scale_service.get_scales_by_date_range(db, start_date, end_date)
     persons = person_service.get_persons(db, is_active=True)
     
-    return templates.TemplateResponse("admin/scales.html", {
+    return templates.TemplateResponse(request=request, name="admin/scales.html", context={
         "request": request,
         "user": user,
         "scales": scales,

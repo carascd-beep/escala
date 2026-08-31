@@ -35,6 +35,9 @@ def create_pessoa(person: PersonCreate, db: Session = Depends(get_db)):
         display_name=person.display_name,
         server_type=person.server_type,
         phone=person.phone,
+        birth_date=person.birth_date,
+        availability=person.availability,
+        experience=person.experience,
         email=person.email,
         observations=person.observations
     )
