@@ -22,17 +22,3 @@ services:
         sync: false
       - key: ADMIN_EMAIL
         sync: false
-
-  - type: web
-    name: escala-coroinhas-streamlit
-    runtime: python
-    plan: free
-    buildCommand: pip install -r streamlit_app/requirements.txt
-    startCommand: streamlit run streamlit_app/app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true
-    envVars:
-      - key: API_BASE_URL
-        sync: false
-      - key: STREAMLIT_SERVER_ENABLECORS
-        value: "false"
-      - key: STREAMLIT_SERVER_ENABLEXsrfProtection
-        value: "false"

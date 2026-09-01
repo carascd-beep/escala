@@ -23,6 +23,72 @@ Sistema web completo para gerenciamento e publicação de escalas de serviço do
 - ⏳ Geração automática inteligente de escalas
 - ⏳ Notificações WhatsApp
 
+## Arquitetura de execução e publicação
+
+Este projeto possui dois componentes, com responsabilidades separadas:
+
+- **Render:** publica somente o serviço `escala`, que executa a API FastAPI e utiliza o PostgreSQL configurado em `DATABASE_URL`.
+- **Streamlit:** é apenas uma interface de visualização local. Não deve ser criado nem publicado como serviço no Render.
+
+### Execução local
+
+Inicie a API:
+
+```bash
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+
+Em outro terminal, inicie o Streamlit apontando para a API local:
+
+```bash
+API_BASE_URL=http://127.0.0.1:8001 python -m streamlit run streamlit_app/app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true
+```
+
+Endereços locais:
+
+- API: http://127.0.0.1:8001
+- Swagger: http://127.0.0.1:8001/docs
+- Streamlit: http://127.0.0.1:8501
+
+Validação rápida:
+
+```bash
+python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8001/docs').status)"
+python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health').read().decode())"
+```
+
+> Importante: `localhost` ou `127.0.0.1` no Streamlit significa o computador onde o Streamlit está executando. Não use essa URL como `API_BASE_URL` em uma aplicação hospedada publicamente.
+
+### Publicação no Render
+
+O arquivo `render.yaml` declara intencionalmente apenas a API:
+
+```text
+serviço: escala-coroinhas-api
+runtime: Python 3.11
+plano: Free
+start: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+Variáveis obrigatórias no Render:
+
+- `DATABASE_URL`: URI completa do PostgreSQL, cadastrada diretamente como segredo no Render.
+- `SECRET_KEY`: gerada pelo Render.
+- `ADMIN_USERNAME`, `ADMIN_PASSWORD` e `ADMIN_EMAIL`: cadastradas diretamente como segredos.
+
+Nunca registrar no Git, chat, logs ou screenshots os valores de `DATABASE_URL`, `SECRET_KEY` ou `ADMIN_PASSWORD`.
+
+Fluxo de publicação:
+
+1. Rodar `pytest -q` localmente.
+2. Confirmar `git status` limpo e fazer push para `main`.
+3. Aguardar o deploy do serviço `escala` no Render.
+4. Verificar `/docs`, `/openapi.json` e um endpoint representativo da API pública.
+5. Confirmar nos logs que a API conectou no PostgreSQL.
+6. Testar criação, edição e persistência de cadastro após reinício.
+
+O status `Deployed` sozinho não comprova conexão com o PostgreSQL; é necessário validar logs e endpoints.
+
 ## 🚀 Instalação
 
 ### Pré-requisitos
