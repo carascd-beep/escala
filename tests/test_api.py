@@ -83,6 +83,46 @@ class TestPessoasAPI:
         data = response.json()
         assert all(p["server_type"] == "coroinha" for p in data)
     
+    def test_update_person(self):
+        """Testa atualização completa de pessoa"""
+        created = client.post("/api/pessoas", json={
+            "full_name": "Pessoa Original",
+            "display_name": "Original",
+            "server_type": "coroinha",
+            "experience": 1,
+            "availability": "ambos",
+        })
+        person_id = created.json()["id"]
+
+        response = client.put(f"/api/pessoas/{person_id}", json={
+            "full_name": "Pessoa Atualizada",
+            "display_name": "Atualizada",
+            "server_type": "acolito",
+            "experience": 3,
+            "availability": "semana",
+            "phone": "11999999999",
+            "fixed_weekdays": [1, 4],
+        })
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["full_name"] == "Pessoa Atualizada"
+        assert data["display_name"] == "Atualizada"
+        assert data["server_type"] == "acolito"
+        assert data["experience"] == 3
+        assert data["fixed_weekdays"] == [1, 4]
+
+    def test_update_person_with_legacy_empty_availability(self):
+        created = client.post("/api/pessoas", json={
+            "full_name": "Pessoa Legada",
+            "display_name": "Legada",
+            "server_type": "coroinha",
+        })
+        person_id = created.json()["id"]
+        response = client.put(f"/api/pessoas/{person_id}", json={"phone": "11988887777"})
+        assert response.status_code == 200
+        assert response.json()["phone"] == "11988887777"
+
     def test_deactivate_person(self):
         """Testa desativação de pessoa"""
         # Criar

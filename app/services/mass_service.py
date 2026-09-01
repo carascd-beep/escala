@@ -46,6 +46,18 @@ def update_mass_schedule(db: Session, schedule_id: int, **kwargs) -> Optional[Ma
     return schedule
 
 
+def delete_mass_schedule(db: Session, schedule_id: int) -> bool:
+    """Exclui horário sem missas já geradas."""
+    schedule = get_mass_schedule(db, schedule_id)
+    if not schedule:
+        return False
+    if schedule.masses:
+        raise ValueError("Não é possível excluir horário com missas vinculadas")
+    db.delete(schedule)
+    db.commit()
+    return True
+
+
 def get_masses_by_date_range(db: Session, start_date: date, end_date: date) -> List[Mass]:
     """Lista missas em um período"""
     return db.query(Mass).filter(
@@ -75,8 +87,10 @@ def create_mass(db: Session, date_val: date, time: str, schedule_id: int = None,
     return mass
 
 
-def generate_masses_for_period(db: Session, start_date: date, end_date: date) -> int:
-    """Gera missas para um período baseado nos horários ativos"""
+def generate_masses_for_period(db: Session, start_date: date, end_date: date, scope: str = "all") -> int:
+    """Gera missas para um período usando apenas horários ativos e escopo."""
+    if scope not in {"all", "weekday", "weekend"}:
+        raise ValueError("Escopo deve ser all, weekday ou weekend")
     schedules = get_mass_schedules(db, is_active=True)
     
     # Mapeamento dia da semana -> número Python (0=segunda, 6=domingo)
@@ -95,6 +109,12 @@ def generate_masses_for_period(db: Session, start_date: date, end_date: date) ->
     
     while current_date <= end_date:
         weekday = current_date.weekday()
+        if scope == "weekday" and weekday >= 5:
+            current_date += timedelta(days=1)
+            continue
+        if scope == "weekend" and weekday < 5:
+            current_date += timedelta(days=1)
+            continue
         
         for schedule in schedules:
             if day_map[schedule.day_of_week] == weekday:

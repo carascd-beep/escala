@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Parâmetros da Escala - Administração{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-sliders"></i> Parâmetros da Escala</h1>
+        <p class="text-muted mb-0">Configure o período, o escopo e a composição antes de gerar.</p>
+    </div>
+    <a class="btn btn-outline-primary" href="/admin/escalas"><i class="bi bi-arrow-left"></i> Voltar às escalas</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-4">
+        <form id="parametersForm" class="row g-4">
+            <div class="col-md-6">
+                <label class="form-label" for="start_date">Data inicial</label>
+                <input class="form-control" type="date" id="start_date" name="start_date" value="{{ start_date }}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="end_date">Data final</label>
+                <input class="form-control" type="date" id="end_date" name="end_date" value="{{ end_date }}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="scope">Escopo do lote</label>
+                <select class="form-select" id="scope" name="scope">
+                    <option value="all">Todos os dias</option>
+                    <option value="weekday">Apenas dias de semana</option>
+                    <option value="weekend">Apenas fim de semana</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="participants_per_scale">Participantes por escala</label>
+                <input class="form-control" type="number" id="participants_per_scale" name="participants_per_scale" min="1" max="10" value="2" required>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Quantidade por função (opcional)</label>
+                <div class="row g-2">
+                    <div class="col-md-4"><label class="form-text" for="qty_coroinha">Coroinhas</label><input class="form-control" type="number" id="qty_coroinha" min="0" value="0"></div>
+                    <div class="col-md-4"><label class="form-text" for="qty_acolito">Acólitos</label><input class="form-control" type="number" id="qty_acolito" min="0" value="0"></div>
+                    <div class="col-md-4"><label class="form-text" for="qty_cerimoniario">Cerimoniários</label><input class="form-control" type="number" id="qty_cerimoniario" min="0" value="0"></div>
+                </div>
+                <div class="form-text">Se preenchido, a soma deve ser igual ao total de participantes.</div>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Prioridade de experiência</label>
+                <div class="form-text mb-2">A equipe sempre terá pelo menos uma pessoa com experiência alta. O nível Muito Baixa exige equipe mínima de 3 pessoas.</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="badge text-bg-success p-2">Alta primeiro</span>
+                    <span class="badge text-bg-warning p-2">Média depois</span>
+                    <span class="badge text-bg-secondary p-2">Baixa depois</span>
+                    <span class="badge text-bg-dark p-2">Muito Baixa por último</span>
+                </div>
+            </div>
+            <div class="col-12">
+                <div id="parameterError" class="alert alert-danger d-none"></div>
+                <div id="parameterSuccess" class="alert alert-success d-none"></div>
+                <button class="btn btn-primary btn-lg" type="submit"><i class="bi bi-stars"></i> Gerar escala</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('parametersForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.target);
+    const startDate = form.get('start_date');
+    const endDate = form.get('end_date');
+    const error = document.getElementById('parameterError');
+    const success = document.getElementById('parameterSuccess');
+    error.classList.add('d-none');
+    success.classList.add('d-none');
+    if (startDate > endDate) {
+        error.textContent = 'A data inicial deve ser anterior ou igual à data final.';
+        error.classList.remove('d-none');
+        return;
+    }
+    const payload = {
+        start_date: startDate,
+        end_date: endDate,
+        scope: form.get('scope'),
+        participants_per_scale: Number(form.get('participants_per_scale')),
+        priority_experience: [3, 2, 1, 0],
+        priority_server_types: [],
+        participants_by_server_type: {}
+    };
+    ['coroinha', 'acolito', 'cerimoniario'].forEach((role) => {
+        const quantity = Number(document.getElementById(`qty_${role}`).value);
+        if (quantity > 0) payload.participants_by_server_type[role] = quantity;
+    });
+    if (Object.keys(payload.participants_by_server_type).length === 0) delete payload.participants_by_server_type;
+    const selectedScope = form.get('scope');
+    const response = await fetch(`/api/escalas/gerar?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&scope=${encodeURIComponent(selectedScope)}`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        error.textContent = data.detail || 'Não foi possível gerar a escala.';
+        error.classList.remove('d-none');
+        return;
+    }
+    window.location.href = `/admin/escalas?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&scope=${encodeURIComponent(payload.scope)}`;
+});
+</script>
+{% endblock %}

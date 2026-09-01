@@ -8,18 +8,20 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         :root {
-            --primary-color: #2c5f7c;
-            --secondary-color: #4a90b8;
-            --accent-color: #f4a261;
+            --primary-color: #0b3d68;
+            --secondary-color: #1769aa;
+            --accent-color: #d8a928;
+            --soft-blue: #eaf3fb;
         }
         
         body {
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, #f7fbff 0%, var(--soft-blue) 100%);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         .navbar {
             background-color: var(--primary-color) !important;
+            border-bottom: 3px solid var(--accent-color);
         }
         
         .btn-primary {
@@ -36,6 +38,9 @@
             border: none;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+
+        .brand-mark { color: var(--accent-color); }
+        .institutional-banner { background: var(--primary-color); color: white; border-radius: 1rem; }
         
         .mass-card {
             border-left: 4px solid var(--accent-color);

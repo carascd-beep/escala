@@ -151,14 +151,22 @@ async def admin_schedules(request: Request, db: Session = Depends(get_db)):
     user = require_auth(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    
     schedules = mass_service.get_mass_schedules(db)
-    
     return templates.TemplateResponse(request=request, name="admin/schedules.html", context={
-        "request": request,
-        "user": user,
-        "schedules": schedules,
-        "day_of_week": DayOfWeek
+        "request": request, "user": user, "schedules": schedules, "day_of_week": DayOfWeek
+    })
+
+
+@router.get("/admin/parametros", response_class=HTMLResponse)
+async def admin_schedule_parameters(request: Request):
+    """Tela de parametrização antes da geração."""
+    user = require_auth(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    today = date.today()
+    return templates.TemplateResponse(request=request, name="admin/schedule_parameters.html", context={
+        "request": request, "user": user,
+        "start_date": today.replace(day=1), "end_date": today,
     })
 
 
@@ -167,6 +175,7 @@ async def admin_scales(
     request: Request,
     start_date: date = None,
     end_date: date = None,
+    scope: str = "all",
     db: Session = Depends(get_db)
 ):
     """Página de escalas"""
@@ -180,6 +189,10 @@ async def admin_scales(
         end_date = start_date + timedelta(days=30)
     
     scales = scale_service.get_scales_by_date_range(db, start_date, end_date)
+    if scope == "weekday":
+        scales = [scale for scale in scales if scale.mass.date.weekday() < 5]
+    elif scope == "weekend":
+        scales = [scale for scale in scales if scale.mass.date.weekday() >= 5]
     persons = person_service.get_persons(db, is_active=True)
     
     return templates.TemplateResponse(request=request, name="admin/scales.html", context={
@@ -189,6 +202,7 @@ async def admin_scales(
         "persons": persons,
         "start_date": start_date,
         "end_date": end_date,
+        "scope": scope,
         "server_types": ServerType,
         "assignment_status": AssignmentStatus
     })
@@ -199,6 +213,7 @@ async def generate_scales(
     request: Request,
     start_date: date = Form(...),
     end_date: date = Form(...),
+    scope: str = Form("all"),
     db: Session = Depends(get_db)
 ):
     """Gera missas para período"""
@@ -206,10 +221,10 @@ async def generate_scales(
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     
-    count = mass_service.generate_masses_for_period(db, start_date, end_date)
+    count = mass_service.generate_masses_for_period(db, start_date, end_date, scope)
     
     return RedirectResponse(
-        url=f"/admin/escalas?start_date={start_date}&end_date={end_date}",
+        url=f"/admin/escalas?start_date={start_date}&end_date={end_date}&scope={scope}",
         status_code=303
     )
 

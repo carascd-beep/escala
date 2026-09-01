@@ -33,7 +33,7 @@
                         <td class="fw-semibold">{{ record.full_name }}</td>
                         <td><span class="badge badge-{{ record.server_type.value }}">{{ record.server_type.value|capitalize }}</span></td>
                         <td>{{ record.availability or '-' }}</td>
-                        <td>{% if record.experience %}<span class="experience-dots experience-{{ record.experience }}" aria-label="Experiência nível {{ record.experience }}">{% for _ in range(record.experience) %}●{% endfor %}</span> <small>{% if record.experience == 1 %}Baixa{% elif record.experience == 2 %}Média{% else %}Alta{% endif %}</small>{% else %}-{% endif %}</td>
+                        <td>{% if record.experience is not none %}<span class="experience-dots experience-{{ record.experience }}" aria-label="Experiência nível {{ record.experience }}">{% for _ in range(record.experience) %}●{% endfor %}</span> <small>{% if record.experience == 0 %}Muito Baixa{% elif record.experience == 1 %}Baixa{% elif record.experience == 2 %}Média{% else %}Alta{% endif %}</small>{% else %}-{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -95,6 +95,35 @@
     </div>
 </div>
 
+<!-- Modal Editar Pessoa -->
+<div class="modal fade" id="editPersonModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Pessoa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editPersonForm">
+                <input type="hidden" id="edit_person_id">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label">Nome completo</label><input id="edit_full_name" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label">Nome para exibição</label><input id="edit_display_name" class="form-control" required></div>
+                        <div class="col-md-6"><label class="form-label">Função</label><select id="edit_server_type" class="form-select" required>{% for type in server_types %}<option value="{{ type.value }}">{{ type.value|capitalize }}</option>{% endfor %}</select></div>
+                        <div class="col-md-6"><label class="form-label">Experiência</label><select id="edit_experience" class="form-select"><option value="0">Muito Baixa</option><option value="1">Baixa</option><option value="2">Média</option><option value="3">Alta</option></select></div>
+                        <div class="col-md-6"><label class="form-label">Disponibilidade</label><select id="edit_availability" class="form-select"><option value="semana">Semana</option><option value="fim de semana">Fim de Semana</option><option value="ambos">Ambos</option></select></div>
+                        <div class="col-md-6"><label class="form-label">Telefone</label><input id="edit_phone" class="form-control"></div>
+                        <div class="col-12"><label class="form-label">Dias fixos preferenciais</label><select id="edit_fixed_weekdays" class="form-select" multiple>{% for day, label in [(0, 'Segunda-feira'), (1, 'Terça-feira'), (2, 'Quarta-feira'), (3, 'Quinta-feira'), (4, 'Sexta-feira'), (5, 'Sábado'), (6, 'Domingo')] %}<option value="{{ day }}">{{ label }}</option>{% endfor %}</select></div>
+                        <div class="col-12"><label class="form-label">Observações</label><textarea id="edit_observations" class="form-control" rows="3"></textarea></div>
+                    </div>
+                    <div id="editPersonError" class="alert alert-danger d-none mt-3"></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Salvar alterações</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Nova Pessoa -->
 <div class="modal fade" id="newPersonModal" tabindex="-1">
     <div class="modal-dialog">
@@ -122,6 +151,36 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Disponibilidade</label>
+                        <select class="form-select" name="availability">
+                            <option value="semana">Semana</option>
+                            <option value="fim de semana">Fim de Semana</option>
+                            <option value="ambos" selected>Ambos</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dias fixos preferenciais</label>
+                        <select class="form-select" name="fixed_weekdays" multiple>
+                            <option value="0">Segunda-feira</option>
+                            <option value="1">Terça-feira</option>
+                            <option value="2">Quarta-feira</option>
+                            <option value="3">Quinta-feira</option>
+                            <option value="4">Sexta-feira</option>
+                            <option value="5">Sábado</option>
+                            <option value="6">Domingo</option>
+                        </select>
+                        <small class="text-muted">Segure Ctrl para selecionar mais de um dia.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Experiência</label>
+                        <select class="form-select" name="experience">
+                            <option value="0">Muito Baixa</option>
+                            <option value="1">Baixa</option>
+                            <option value="2" selected>Média</option>
+                            <option value="3">Alta</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Telefone</label>
                         <input type="text" class="form-control" name="phone">
                     </div>
@@ -145,6 +204,8 @@ document.getElementById('newPersonForm').addEventListener('submit', async (e) =>
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
+    data.experience = Number(data.experience);
+    data.fixed_weekdays = formData.getAll('fixed_weekdays').map(Number);
     
     const response = await fetch('/api/pessoas', {
         method: 'POST',
@@ -178,6 +239,49 @@ async function activatePerson(id) {
         location.reload();
     }
 }
+
+async function editPerson(id) {
+    const response = await fetch(`/api/pessoas/${id}`);
+    if (!response.ok) {
+        alert('Não foi possível carregar o cadastro.');
+        return;
+    }
+    const person = await response.json();
+    document.getElementById('edit_person_id').value = person.id;
+    document.getElementById('edit_full_name').value = person.full_name || '';
+    document.getElementById('edit_display_name').value = person.display_name || '';
+    document.getElementById('edit_server_type').value = person.server_type || '';
+    document.getElementById('edit_experience').value = person.experience ?? 2;
+    document.getElementById('edit_availability').value = person.availability || 'ambos';
+    document.getElementById('edit_phone').value = person.phone || '';
+    document.getElementById('edit_observations').value = person.observations || '';
+    const fixed = new Set(person.fixed_weekdays || []);
+    document.querySelectorAll('#edit_fixed_weekdays option').forEach(option => option.selected = fixed.has(Number(option.value)));
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editPersonModal')).show();
+}
+
+document.getElementById('editPersonForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const id = document.getElementById('edit_person_id').value;
+    const payload = {
+        full_name: document.getElementById('edit_full_name').value.trim(),
+        display_name: document.getElementById('edit_display_name').value.trim(),
+        server_type: document.getElementById('edit_server_type').value,
+        experience: Number(document.getElementById('edit_experience').value),
+        availability: document.getElementById('edit_availability').value,
+        phone: document.getElementById('edit_phone').value.trim(),
+        observations: document.getElementById('edit_observations').value.trim(),
+        fixed_weekdays: Array.from(document.getElementById('edit_fixed_weekdays').selectedOptions).map(option => Number(option.value)),
+    };
+    const response = await fetch(`/api/pessoas/${id}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+    if (response.ok) location.reload();
+    else {
+        const data = await response.json().catch(() => ({}));
+        const error = document.getElementById('editPersonError');
+        error.textContent = data.detail || 'Não foi possível salvar as alterações.';
+        error.classList.remove('d-none');
+    }
+});
 </script>
 {% endblock %}
 {% endblock %}

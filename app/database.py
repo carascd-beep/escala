@@ -32,7 +32,7 @@ Base = declarative_base()
 
 
 def ensure_schema():
-    """Adiciona colunas novas sem apagar dados de bancos SQLite existentes."""
+    """Adiciona colunas novas sem apagar dados existentes."""
     inspector = inspect(engine)
     if "persons" not in inspector.get_table_names():
         return
@@ -42,6 +42,7 @@ def ensure_schema():
         "birth_date": "DATE",
         "availability": "VARCHAR(20)",
         "experience": "INTEGER",
+        "fixed_weekdays": "VARCHAR(30)",
     }
     with engine.begin() as connection:
         for name, column_type in additions.items():

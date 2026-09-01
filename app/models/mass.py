@@ -30,6 +30,7 @@ class MassSchedule(Base):
     
     # Relacionamentos
     masses = relationship("Mass", back_populates="schedule")
+    preferred_people = relationship("Person", secondary="person_fixed_schedules", back_populates="fixed_schedules")
 
 
 class Mass(Base):

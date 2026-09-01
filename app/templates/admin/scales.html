@@ -8,6 +8,10 @@
         <h1><i class="bi bi-calendar-check"></i> Escalas</h1>
         <p class="text-muted">Gerenciar escalas de serviço</p>
     </div>
+    <div class="col-auto">
+        <a class="btn btn-warning" href="/admin/parametros"><i class="bi bi-sliders"></i> Parâmetros</a>
+        <button class="btn btn-outline-danger" type="button" onclick="clearDraftScales()"><i class="bi bi-eraser"></i> Limpar rascunhos</button>
+    </div>
 </div>
 
 <div class="card mb-4">
@@ -28,8 +32,17 @@
                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#generateModal">
                     <i class="bi bi-magic"></i> Gerar Missas
                 </button>
+                <button type="button" class="btn btn-warning" onclick="generateAutomaticScale()">
+                    <i class="bi bi-stars"></i> Gerar Escala Automática
+                </button>
             </div>
         </form>
+        {% if scope != 'all' %}
+        <div class="alert alert-info mt-3 mb-0">
+            Exibindo somente {% if scope == 'weekday' %}dias de semana{% else %}fim de semana{% endif %}.
+            As demais escalas não foram alteradas.
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -134,6 +147,7 @@
                         <label class="form-label">Data Final</label>
                         <input type="date" class="form-control" name="end_date" value="{{ end_date }}" required>
                     </div>
+                    <input type="hidden" name="scope" value="{{ scope or 'all' }}">
                     <small class="text-muted">O sistema irá gerar missas baseadas nos horários ativos cadastrados.</small>
                 </div>
                 <div class="modal-footer">
@@ -154,6 +168,18 @@ async function removeAssignment(id) {
     if (response.ok) {
         location.reload();
     }
+}
+
+async function generateAutomaticScale() {
+    window.location.href = '/admin/parametros';
+}
+
+async function clearDraftScales() {
+    if (!confirm('Limpar atribuições das escalas não publicadas neste período?')) return;
+    const params = new URLSearchParams({start_date: '{{ start_date }}', end_date: '{{ end_date }}', scope: '{{ scope or "all" }}'});
+    const response = await fetch(`/api/escalas/rascunhos?${params}`, {method: 'DELETE'});
+    if (response.ok) location.reload();
+    else alert('Não foi possível limpar os rascunhos.');
 }
 </script>
 {% endblock %}

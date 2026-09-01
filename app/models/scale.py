@@ -46,3 +46,42 @@ class ScaleAssignment(Base):
     # Relacionamentos
     scale = relationship("Scale", back_populates="assignments")
     person = relationship("Person", back_populates="assignments")
+
+
+class SwapRequestStatus(str, enum.Enum):
+    """Estados do fluxo de solicitação de troca."""
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class SwapRequest(Base):
+    """Troca aguardando aprovação do coordenador."""
+    __tablename__ = "swap_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    assignment_id = Column(Integer, ForeignKey("scale_assignments.id"), nullable=False)
+    requester_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
+    substitute_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
+    status = Column(Enum(SwapRequestStatus), default=SwapRequestStatus.PENDING, nullable=False)
+    reason = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    assignment = relationship("ScaleAssignment")
+    requester = relationship("Person", foreign_keys=[requester_id])
+    substitute = relationship("Person", foreign_keys=[substitute_id])
+
+
+class ScheduleParameter(Base):
+    """Configuração persistida da última geração de escala."""
+    __tablename__ = "schedule_parameters"
+
+    id = Column(Integer, primary_key=True, index=True)
+    scope = Column(String(20), nullable=False, default="all")
+    participants_per_scale = Column(Integer, nullable=False, default=2)
+    priority_experience = Column(String(30), nullable=False, default="3,2,1")
+    priority_server_types = Column(String(100), nullable=False, default="")
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

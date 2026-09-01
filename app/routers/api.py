@@ -8,6 +8,10 @@ from app.services import person_service, mass_service, scale_service
 from app.schemas.person import PersonCreate, PersonUpdate, PersonResponse
 from app.schemas.mass import MassScheduleCreate, MassScheduleUpdate, MassScheduleResponse, MassCreate, MassResponse
 from app.schemas.scale import ScaleResponse, ScaleAssignmentCreate, ScaleAssignmentUpdate, ScaleAssignmentResponse
+from app.schemas.swap import SwapRequestCreate, SwapRequestResponse
+from app.schemas.schedule_parameters import ScheduleParametersCreate
+from app.services.schedule_engine import ScheduleParameters
+from app.services.scale_engine_adapter import generate_scales_for_period, clear_unpublished_scales
 from app.models.person import ServerType
 from app.models.scale import AssignmentStatus
 
@@ -38,6 +42,8 @@ def create_pessoa(person: PersonCreate, db: Session = Depends(get_db)):
         birth_date=person.birth_date,
         availability=person.availability,
         experience=person.experience,
+        fixed_schedule_ids=person.fixed_schedule_ids,
+        fixed_weekdays=person.fixed_weekdays,
         email=person.email,
         observations=person.observations
     )
@@ -88,6 +94,15 @@ def create_horario(schedule: MassScheduleCreate, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/horarios/{schedule_id}", response_model=MassScheduleResponse)
+def get_horario(schedule_id: int, db: Session = Depends(get_db)):
+    """Busca um horário para edição."""
+    schedule = mass_service.get_mass_schedule(db, schedule_id)
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Horário não encontrado")
+    return schedule
+
+
 @router.put("/horarios/{schedule_id}", response_model=MassScheduleResponse)
 def update_horario(schedule_id: int, schedule: MassScheduleUpdate, db: Session = Depends(get_db)):
     """Atualiza horário"""
@@ -95,6 +110,15 @@ def update_horario(schedule_id: int, schedule: MassScheduleUpdate, db: Session =
     if not updated:
         raise HTTPException(status_code=404, detail="Horário não encontrado")
     return updated
+
+
+@router.delete("/horarios/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_horario(schedule_id: int, db: Session = Depends(get_db)):
+    try:
+        if not mass_service.delete_mass_schedule(db, schedule_id):
+            raise HTTPException(status_code=404, detail="Horário não encontrado")
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
 
 # ===== MISSAS =====
@@ -121,9 +145,12 @@ def create_missa(mass: MassCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/missas/gerar", status_code=status.HTTP_201_CREATED)
-def generate_masses(start_date: date, end_date: date, db: Session = Depends(get_db)):
+def generate_masses(start_date: date, end_date: date, scope: str = "all", db: Session = Depends(get_db)):
     """Gera missas para um período"""
-    count = mass_service.generate_masses_for_period(db, start_date, end_date)
+    try:
+        count = mass_service.generate_masses_for_period(db, start_date, end_date, scope)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     return {"message": f"{count} missas geradas com sucesso"}
 
 
@@ -133,6 +160,31 @@ def generate_masses(start_date: date, end_date: date, db: Session = Depends(get_
 def list_escalas(start_date: date, end_date: date, db: Session = Depends(get_db)):
     """Lista escalas"""
     return scale_service.get_scales_by_date_range(db, start_date, end_date)
+
+
+@router.post("/escalas/gerar", status_code=status.HTTP_201_CREATED)
+def generate_scales(start_date: date, end_date: date, parameters: ScheduleParametersCreate | None = None, db: Session = Depends(get_db)):
+    """Gera escalas automáticas para as missas do período."""
+    try:
+        params = ScheduleParameters(
+            scope=parameters.scope,
+            participants_per_scale=parameters.participants_per_scale,
+            priority_experience=tuple(parameters.priority_experience),
+            priority_server_types=tuple(parameters.priority_server_types),
+            participants_by_server_type=parameters.participants_by_server_type,
+        ) if parameters else None
+        assignments = generate_scales_for_period(db, start_date, end_date, params)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    return {"assignments": assignments}
+
+
+@router.delete("/escalas/rascunhos", status_code=status.HTTP_200_OK)
+def clear_draft_scales(start_date: date, end_date: date, scope: str = "all", db: Session = Depends(get_db)):
+    try:
+        return clear_unpublished_scales(db, start_date, end_date, scope)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.post("/escalas/{mass_id}", response_model=ScaleResponse)
@@ -179,3 +231,27 @@ def publish_scale(scale_id: int, db: Session = Depends(get_db)):
     if not scale:
         raise HTTPException(status_code=404, detail="Escala não encontrada")
     return scale
+
+
+@router.post("/trocas", response_model=SwapRequestResponse, status_code=status.HTTP_201_CREATED)
+def create_swap(request_data: SwapRequestCreate, db: Session = Depends(get_db)):
+    try:
+        return scale_service.create_swap_request(db, **request_data.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/trocas/{request_id}/aprovar", response_model=SwapRequestResponse)
+def approve_swap(request_id: int, db: Session = Depends(get_db)):
+    request = scale_service.resolve_swap_request(db, request_id, approve=True)
+    if not request:
+        raise HTTPException(status_code=404, detail="Solicitação pendente não encontrada")
+    return request
+
+
+@router.post("/trocas/{request_id}/rejeitar", response_model=SwapRequestResponse)
+def reject_swap(request_id: int, db: Session = Depends(get_db)):
+    request = scale_service.resolve_swap_request(db, request_id, approve=False)
+    if not request:
+        raise HTTPException(status_code=404, detail="Solicitação pendente não encontrada")
+    return request

@@ -10,8 +10,9 @@
     </div>
     <div class="col-auto">
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newScheduleModal">
-            <i class="bi bi-plus-circle"></i> Novo Horário
+        <i class="bi bi-plus-circle"></i> Novo Horário
         </button>
+        <a class="btn btn-warning" href="/admin/parametros"><i class="bi bi-sliders"></i> Parâmetros da Escala</a>
     </div>
 </div>
 
@@ -44,6 +45,12 @@
                         <td>
                             <button class="btn btn-sm btn-outline-primary" onclick="editSchedule({{ schedule.id }})">
                                 <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteSchedule({{ schedule.id }})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <button class="btn btn-sm {% if schedule.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" onclick="toggleSchedule({{ schedule.id }}, {{ 'false' if schedule.is_active else 'true' }})">
+                                {% if schedule.is_active %}<i class="bi bi-pause-circle"></i> Inativar{% else %}<i class="bi bi-play-circle"></i> Ativar{% endif %}
                             </button>
                         </td>
                     </tr>
@@ -109,6 +116,40 @@ document.getElementById('newScheduleForm').addEventListener('submit', async (e) 
         alert('Erro ao criar horário');
     }
 });
+
+async function deleteSchedule(id) {
+    if (!confirm('Excluir este horário?')) return;
+    const response = await fetch(`/api/horarios/${id}`, {method: 'DELETE'});
+    if (response.ok) location.reload();
+    else alert((await response.json()).detail || 'Não foi possível excluir.');
+}
+
+async function editSchedule(id) {
+    const response = await fetch(`/api/horarios/${id}`);
+    if (!response.ok) return alert('Horário não encontrado.');
+    const schedule = await response.json();
+    const day = prompt('Dia da semana (monday, tuesday, wednesday, thursday, friday, saturday ou sunday):', schedule.day_of_week);
+    if (day === null) return;
+    const time = prompt('Horário (HH:MM):', schedule.time);
+    if (time === null) return;
+    const description = prompt('Descrição:', schedule.description || '');
+    if (description === null) return;
+    const update = await fetch(`/api/horarios/${id}`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({day_of_week: day, time: time, description: description})
+    });
+    if (update.ok) location.reload();
+    else alert((await update.json()).detail || 'Não foi possível editar o horário.');
+}
+
+async function toggleSchedule(id, active) {
+    const response = await fetch(`/api/horarios/${id}`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({is_active: active})
+    });
+    if (response.ok) location.reload();
+    else alert('Não foi possível atualizar o status do horário.');
+}
 </script>
 {% endblock %}
 {% endblock %}

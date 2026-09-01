@@ -1,10 +1,11 @@
 """Serviço de Escalas"""
 from sqlalchemy.orm import Session, joinedload
-from app.models.scale import Scale, ScaleAssignment, AssignmentStatus
+from app.models.scale import Scale, ScaleAssignment, AssignmentStatus, SwapRequest, SwapRequestStatus
 from app.models.mass import Mass
 from app.models.person import Person
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
+from app.services.schedule_engine import generate_assignments
 
 
 def get_scale_by_mass(db: Session, mass_id: int) -> Optional[Scale]:
@@ -142,3 +143,44 @@ def unpublish_scale(db: Session, scale_id: int) -> Optional[Scale]:
     db.commit()
     db.refresh(scale)
     return scale
+
+
+def create_swap_request(db: Session, assignment_id: int, requester_id: int,
+                        substitute_id: int, reason: str = None) -> SwapRequest:
+    """Cria solicitação somente para substituto compatível."""
+    assignment = db.query(ScaleAssignment).options(
+        joinedload(ScaleAssignment.scale).joinedload(Scale.mass)
+    ).filter(ScaleAssignment.id == assignment_id).first()
+    requester = db.query(Person).filter(Person.id == requester_id, Person.is_active.is_(True)).first()
+    substitute = db.query(Person).filter(Person.id == substitute_id, Person.is_active.is_(True)).first()
+    if not assignment or not requester or not substitute or requester_id == substitute_id:
+        raise ValueError("Solicitação de troca inválida")
+    if assignment.person_id != requester_id or substitute.experience not in (1, 2):
+        raise ValueError("Substituto não respeita a composição de experiência")
+    value = (substitute.availability or "").lower()
+    weekend = assignment.scale.mass.date.weekday() in {5, 6}
+    if ("fim" in value) != weekend and "ambos" not in value and "todo" not in value:
+        raise ValueError("Substituto não está disponível para esta data")
+    request = SwapRequest(assignment_id=assignment_id, requester_id=requester_id,
+                          substitute_id=substitute_id, reason=reason)
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+def resolve_swap_request(db: Session, request_id: int, approve: bool) -> Optional[SwapRequest]:
+    """Aprova/rejeita e consolida uma troca aprovada."""
+    request = db.query(SwapRequest).filter(SwapRequest.id == request_id).first()
+    if not request or request.status != SwapRequestStatus.PENDING:
+        return None
+    request.status = SwapRequestStatus.APPROVED if approve else SwapRequestStatus.REJECTED
+    request.resolved_at = datetime.utcnow()
+    if approve:
+        assignment = db.query(ScaleAssignment).filter(ScaleAssignment.id == request.assignment_id).first()
+        if assignment:
+            assignment.status = AssignmentStatus.SUBSTITUTED
+            db.add(ScaleAssignment(scale_id=assignment.scale_id, person_id=request.substitute_id))
+    db.commit()
+    db.refresh(request)
+    return request
