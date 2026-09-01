@@ -26,11 +26,12 @@
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0" id="cadastroInicialTable">
-                <thead><tr><th>Nome</th><th>Função</th><th>Disponibilidade</th><th>Experiência</th></tr></thead>
+                <thead><tr><th>Nome</th><th>Nascimento</th><th>Função</th><th>Disponibilidade</th><th>Experiência</th></tr></thead>
                 <tbody>
                     {% for record in persons %}
                     <tr>
                         <td class="fw-semibold">{{ record.full_name }}</td>
+                        <td>{{ record.birth_date.strftime('%d/%m/%Y') if record.birth_date else '-' }}</td>
                         <td><span class="badge badge-{{ record.server_type.value }}">{{ record.server_type.value|capitalize }}</span></td>
                         <td>{{ record.availability or '-' }}</td>
                         <td>{% if record.experience is not none %}<span class="experience-dots experience-{{ record.experience }}" aria-label="Experiência nível {{ record.experience }}">{% for _ in range(record.experience) %}●{% endfor %}</span> <small>{% if record.experience == 0 %}Muito Baixa{% elif record.experience == 1 %}Baixa{% elif record.experience == 2 %}Média{% else %}Alta{% endif %}</small>{% else %}-{% endif %}</td>
@@ -112,6 +113,7 @@
                         <div class="col-md-6"><label class="form-label">Função</label><select id="edit_server_type" class="form-select" required>{% for type in server_types %}<option value="{{ type.value }}">{{ type.value|capitalize }}</option>{% endfor %}</select></div>
                         <div class="col-md-6"><label class="form-label">Experiência</label><select id="edit_experience" class="form-select"><option value="0">Muito Baixa</option><option value="1">Baixa</option><option value="2">Média</option><option value="3">Alta</option></select></div>
                         <div class="col-md-6"><label class="form-label">Disponibilidade</label><select id="edit_availability" class="form-select"><option value="semana">Semana</option><option value="fim de semana">Fim de Semana</option><option value="ambos">Ambos</option></select></div>
+                        <div class="col-md-6"><label class="form-label">Data de nascimento</label><input id="edit_birth_date" type="date" class="form-control"></div>
                         <div class="col-md-6"><label class="form-label">Telefone</label><input id="edit_phone" class="form-control"></div>
                         <div class="col-12"><label class="form-label">Dias fixos preferenciais</label><select id="edit_fixed_weekdays" class="form-select" multiple>{% for day, label in [(0, 'Segunda-feira'), (1, 'Terça-feira'), (2, 'Quarta-feira'), (3, 'Quinta-feira'), (4, 'Sexta-feira'), (5, 'Sábado'), (6, 'Domingo')] %}<option value="{{ day }}">{{ label }}</option>{% endfor %}</select></div>
                         <div class="col-12"><label class="form-label">Observações</label><textarea id="edit_observations" class="form-control" rows="3"></textarea></div>
@@ -172,6 +174,10 @@
                         <small class="text-muted">Segure Ctrl para selecionar mais de um dia.</small>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Data de nascimento</label>
+                        <input id="new_birth_date" type="date" class="form-control" name="birth_date">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Experiência</label>
                         <select class="form-select" name="experience">
                             <option value="0">Muito Baixa</option>
@@ -205,6 +211,7 @@ document.getElementById('newPersonForm').addEventListener('submit', async (e) =>
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
     data.experience = Number(data.experience);
+    data.birth_date = data.birth_date || null;
     data.fixed_weekdays = formData.getAll('fixed_weekdays').map(Number);
     
     const response = await fetch('/api/pessoas', {
@@ -252,6 +259,7 @@ async function editPerson(id) {
     document.getElementById('edit_display_name').value = person.display_name || '';
     document.getElementById('edit_server_type').value = person.server_type || '';
     document.getElementById('edit_experience').value = person.experience ?? 2;
+    document.getElementById('edit_birth_date').value = person.birth_date || '';
     document.getElementById('edit_availability').value = person.availability || 'ambos';
     document.getElementById('edit_phone').value = person.phone || '';
     document.getElementById('edit_observations').value = person.observations || '';
@@ -268,6 +276,7 @@ document.getElementById('editPersonForm').addEventListener('submit', async (even
         display_name: document.getElementById('edit_display_name').value.trim(),
         server_type: document.getElementById('edit_server_type').value,
         experience: Number(document.getElementById('edit_experience').value),
+        birth_date: document.getElementById('edit_birth_date').value || null,
         availability: document.getElementById('edit_availability').value,
         phone: document.getElementById('edit_phone').value.trim(),
         observations: document.getElementById('edit_observations').value.trim(),
