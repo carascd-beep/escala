@@ -18,12 +18,13 @@ def get_mass_schedule(db: Session, schedule_id: int) -> Optional[MassSchedule]:
     return db.query(MassSchedule).filter(MassSchedule.id == schedule_id).first()
 
 
-def create_mass_schedule(db: Session, day_of_week: DayOfWeek, time: str, description: str = None) -> MassSchedule:
+def create_mass_schedule(db: Session, day_of_week: DayOfWeek, time: str, description: str = None, participants_count: int = 2) -> MassSchedule:
     """Cria horário de missa"""
     schedule = MassSchedule(
         day_of_week=day_of_week,
         time=time,
-        description=description
+        description=description,
+        participants_count=participants_count,
     )
     db.add(schedule)
     db.commit()

@@ -20,7 +20,9 @@ def generate_scales_for_period(db: Session, start_date: date, end_date: date,
     ).order_by(Mass.date, Mass.time).all()
     generated = generate_assignments(
         db.query(Person).filter(Person.is_active.is_(True)).all(),
-        ({"id": m.id, "date": m.date, "schedule_id": m.schedule_id} for m in masses),
+        ({"id": m.id, "date": m.date, "schedule_id": m.schedule_id,
+          "participants_count": m.schedule.participants_count if m.schedule else 2}
+         for m in masses),
         parameters,
     )
     total = 0

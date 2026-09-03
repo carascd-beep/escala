@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.models.person import Person, ServerType
+from app.services.person_service import _canonical_availability
 from app.utils.cadastro_import import read_cadastro_excel
 
 
@@ -27,7 +28,7 @@ def import_cadastro_if_empty(db: Session, excel_path: str | Path) -> int:
             display_name=record["full_name"],
             server_type=ServerType(record["server_type"]),
             birth_date=_excel_date(record["birth_date_serial"]),
-            availability=record["availability"],
+            availability=_canonical_availability(record["availability"]),
             experience=record["experience"],
         ))
     db.commit()

@@ -15,58 +15,43 @@
     </div>
 </div>
 
-<div class="card mb-4 border-0 bg-white">
-    <div class="card-body">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
-            <div>
-                <h2 class="h4 mb-1"><i class="bi bi-person-vcard"></i> Cadastro inicial</h2>
-                <p class="text-muted mb-0">Dados persistidos no banco SQLite</p>
-            </div>
-            <span class="badge text-bg-primary">{{ persons|length }} cadastros</span>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="cadastroInicialTable">
-                <thead><tr><th>Nome</th><th>Nascimento</th><th>Função</th><th>Disponibilidade</th><th>Experiência</th></tr></thead>
-                <tbody>
-                    {% for record in persons %}
-                    <tr>
-                        <td class="fw-semibold">{{ record.full_name }}</td>
-                        <td>{{ record.birth_date.strftime('%d/%m/%Y') if record.birth_date else '-' }}</td>
-                        <td><span class="badge badge-{{ record.server_type.value }}">{{ record.server_type.value|capitalize }}</span></td>
-                        <td>{{ record.availability or '-' }}</td>
-                        <td>{% if record.experience is not none %}<span class="experience-dots experience-{{ record.experience }}" aria-label="Experiência nível {{ record.experience }}">{% for _ in range(record.experience) %}●{% endfor %}</span> <small>{% if record.experience == 0 %}Muito Baixa{% elif record.experience == 1 %}Baixa{% elif record.experience == 2 %}Média{% else %}Alta{% endif %}</small>{% else %}-{% endif %}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <small class="text-muted d-block mt-3">Disponibilidade e experiência armazenadas no banco SQLite · experiência: 1 baixa, 2 média, 3 alta</small>
-    </div>
-</div>
-
 <div class="card">
     <div class="card-body">
+        <div class="alert alert-light border mb-3">
+            <strong><i class="bi bi-bar-chart"></i> Pessoas ativas com disponibilidade Ambos</strong>
+            <div class="d-flex flex-wrap gap-3 mt-2" id="bothExperienceSummary">
+                <span> Muito Baixa: <strong>{{ both_experience_counts.get(0, 0) }}</strong></span>
+                <span> Baixa: <strong>{{ both_experience_counts.get(1, 0) }}</strong></span>
+                <span> Média: <strong>{{ both_experience_counts.get(2, 0) }}</strong></span>
+                <span> Alta: <strong>{{ both_experience_counts.get(3, 0) }}</strong></span>
+            </div>
+            <small class="text-muted">O resumo considera somente pessoas ativas cadastradas como Ambos.</small>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table table-hover" id="personsTable">
                 <thead>
                     <tr>
-                        <th>Nome</th>
-                        <th>Tipo</th>
-                        <th>Telefone</th>
-                        <th>Status</th>
+                        <th><button class="btn btn-link p-0 text-dark" type="button" data-sort-key="display_name">Nome</button></th>
+                        <th><button class="btn btn-link p-0 text-dark" type="button" data-sort-key="birth_date">Nascimento</button></th>
+                        <th><button class="btn btn-link p-0 text-dark" type="button" data-sort-key="server_type">Função</button></th>
+                        <th><button class="btn btn-link p-0 text-dark" type="button" data-sort-key="availability">Disponibilidade</button></th>
+                        <th><button class="btn btn-link p-0 text-dark" type="button" data-sort-key="experience">Experiência</button></th>
+                        <th><button class="btn btn-link p-0 text-dark" type="button" data-sort-key="is_active">Status</button></th>
                         <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for person in persons %}
-                    <tr>
+                    <tr data-display_name="{{ person.display_name|lower }}" data-birth_date="{{ person.birth_date.isoformat() if person.birth_date else '' }}" data-server_type="{{ person.server_type.value }}" data-availability="{{ person.availability or '' }}" data-experience="{{ person.experience if person.experience is not none else -1 }}" data-is_active="{{ 1 if person.is_active else 0 }}">
                         <td>{{ person.display_name }}</td>
+                        <td>{{ person.birth_date.strftime('%d/%m/%Y') if person.birth_date else '-' }}</td>
                         <td>
                             <span class="badge badge-{{ person.server_type.value }}">
                                 {{ person.server_type.value|capitalize }}
                             </span>
                         </td>
-                        <td>{{ person.phone or '-' }}</td>
+                        <td>{% if person.availability == 'semana' %}Semana{% elif person.availability == 'fim de semana' %}Fim de Semana{% elif person.availability == 'ambos' %}Ambos{% else %}{{ person.availability or '-' }}{% endif %}</td>
+                        <td>{% if person.experience is not none %}{% if person.experience == 0 %}Muito Baixa{% elif person.experience == 1 %}Baixa{% elif person.experience == 2 %}Média{% else %}Alta{% endif %}{% else %}-{% endif %}</td>
                         <td>
                             {% if person.is_active %}
                             <span class="badge bg-success">Ativo</span>
@@ -78,15 +63,6 @@
                             <button class="btn btn-sm btn-outline-primary" onclick="editPerson({{ person.id }})">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            {% if person.is_active %}
-                            <button class="btn btn-sm btn-outline-danger" onclick="deactivatePerson({{ person.id }})">
-                                <i class="bi bi-x-circle"></i>
-                            </button>
-                            {% else %}
-                            <button class="btn btn-sm btn-outline-success" onclick="activatePerson({{ person.id }})">
-                                <i class="bi bi-check-circle"></i>
-                            </button>
-                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -115,7 +91,8 @@
                         <div class="col-md-6"><label class="form-label">Disponibilidade</label><select id="edit_availability" class="form-select"><option value="semana">Semana</option><option value="fim de semana">Fim de Semana</option><option value="ambos">Ambos</option></select></div>
                         <div class="col-md-6"><label class="form-label">Data de nascimento</label><input id="edit_birth_date" type="date" class="form-control"></div>
                         <div class="col-md-6"><label class="form-label">Telefone</label><input id="edit_phone" class="form-control"></div>
-                        <div class="col-12"><label class="form-label">Dias fixos preferenciais</label><select id="edit_fixed_weekdays" class="form-select" multiple>{% for day, label in [(0, 'Segunda-feira'), (1, 'Terça-feira'), (2, 'Quarta-feira'), (3, 'Quinta-feira'), (4, 'Sexta-feira'), (5, 'Sábado'), (6, 'Domingo')] %}<option value="{{ day }}">{{ label }}</option>{% endfor %}</select></div>
+                        <div class="col-12"><label class="form-label">Horários fixos de participação</label><select id="edit_fixed_schedule_ids" class="form-select" multiple>{% for schedule in schedules %}<option value="{{ schedule.id }}">{{ schedule.day_of_week.value|capitalize }} às {{ schedule.time }}{% if schedule.description %} — {{ schedule.description }}{% endif %}</option>{% endfor %}</select></div>
+                        <div class="col-md-6"><label class="form-label">Status</label><select id="edit_is_active" class="form-select"><option value="true">Ativo</option><option value="false">Inativo</option></select></div>
                         <div class="col-12"><label class="form-label">Observações</label><textarea id="edit_observations" class="form-control" rows="3"></textarea></div>
                     </div>
                     <div id="editPersonError" class="alert alert-danger d-none mt-3"></div>
@@ -161,17 +138,13 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Dias fixos preferenciais</label>
-                        <select class="form-select" name="fixed_weekdays" multiple>
-                            <option value="0">Segunda-feira</option>
-                            <option value="1">Terça-feira</option>
-                            <option value="2">Quarta-feira</option>
-                            <option value="3">Quinta-feira</option>
-                            <option value="4">Sexta-feira</option>
-                            <option value="5">Sábado</option>
-                            <option value="6">Domingo</option>
+                        <label class="form-label">Horários fixos de participação</label>
+                        <select class="form-select" name="fixed_schedule_ids" multiple>
+                            {% for schedule in schedules %}
+                            <option value="{{ schedule.id }}">{{ schedule.day_of_week.value|capitalize }} às {{ schedule.time }}{% if schedule.description %} — {{ schedule.description }}{% endif %}</option>
+                            {% endfor %}
                         </select>
-                        <small class="text-muted">Segure Ctrl para selecionar mais de um dia.</small>
+                        <small class="text-muted">Selecione os horários que correspondem aos dias fixos.</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Data de nascimento</label>
@@ -212,7 +185,7 @@ document.getElementById('newPersonForm').addEventListener('submit', async (e) =>
     const data = Object.fromEntries(formData);
     data.experience = Number(data.experience);
     data.birth_date = data.birth_date || null;
-    data.fixed_weekdays = formData.getAll('fixed_weekdays').map(Number);
+    data.fixed_schedule_ids = formData.getAll('fixed_schedule_ids').map(Number);
     
     const response = await fetch('/api/pessoas', {
         method: 'POST',
@@ -263,8 +236,9 @@ async function editPerson(id) {
     document.getElementById('edit_availability').value = person.availability || 'ambos';
     document.getElementById('edit_phone').value = person.phone || '';
     document.getElementById('edit_observations').value = person.observations || '';
-    const fixed = new Set(person.fixed_weekdays || []);
-    document.querySelectorAll('#edit_fixed_weekdays option').forEach(option => option.selected = fixed.has(Number(option.value)));
+    const fixedSchedules = new Set(person.fixed_schedule_ids || []);
+    document.querySelectorAll('#edit_fixed_schedule_ids option').forEach(option => option.selected = fixedSchedules.has(Number(option.value)));
+    document.getElementById('edit_is_active').value = String(person.is_active);
     bootstrap.Modal.getOrCreateInstance(document.getElementById('editPersonModal')).show();
 }
 
@@ -280,7 +254,8 @@ document.getElementById('editPersonForm').addEventListener('submit', async (even
         availability: document.getElementById('edit_availability').value,
         phone: document.getElementById('edit_phone').value.trim(),
         observations: document.getElementById('edit_observations').value.trim(),
-        fixed_weekdays: Array.from(document.getElementById('edit_fixed_weekdays').selectedOptions).map(option => Number(option.value)),
+        fixed_schedule_ids: Array.from(document.getElementById('edit_fixed_schedule_ids').selectedOptions).map(option => Number(option.value)),
+        is_active: document.getElementById('edit_is_active').value === 'true',
     };
     const response = await fetch(`/api/pessoas/${id}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
     if (response.ok) location.reload();
@@ -290,6 +265,24 @@ document.getElementById('editPersonForm').addEventListener('submit', async (even
         error.textContent = data.detail || 'Não foi possível salvar as alterações.';
         error.classList.remove('d-none');
     }
+});
+
+document.querySelectorAll('[data-sort-key]').forEach(button => {
+    button.addEventListener('click', () => {
+        const table = document.getElementById('personsTable');
+        const tbody = table.tBodies[0];
+        const rows = Array.from(tbody.rows);
+        const key = button.dataset.sortKey;
+        const ascending = button.dataset.sortDirection !== 'asc';
+        rows.sort((a, b) => {
+            const left = a.dataset[key] || '';
+            const right = b.dataset[key] || '';
+            return left.localeCompare(right, 'pt-BR', {numeric: true, sensitivity: 'base'}) * (ascending ? 1 : -1);
+        });
+        rows.forEach(row => tbody.appendChild(row));
+        document.querySelectorAll('[data-sort-key]').forEach(item => delete item.dataset.sortDirection);
+        button.dataset.sortDirection = ascending ? 'asc' : 'desc';
+    });
 });
 </script>
 {% endblock %}

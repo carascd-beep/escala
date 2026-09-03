@@ -329,5 +329,5 @@ class TestWebPages:
         })
         response = client.get("/api/pessoas")
         assert response.status_code == 200
-        assert response.json()[0]["availability"] == "Todo Dia"
+        assert response.json()[0]["availability"] == "ambos"
         assert response.json()[0]["experience"] == 2

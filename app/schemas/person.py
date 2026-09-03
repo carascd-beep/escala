@@ -37,11 +37,18 @@ class PersonBase(BaseModel):
         cleaned = value.strip()
         if not cleaned:
             return ""
-        normalized = cleaned.lower().replace("-", " ")
-        allowed = {"semana", "dia de semana", "fim de semana", "ambos", "todo dia"}
-        if normalized not in allowed:
-            raise ValueError("Disponibilidade deve ser Semana, Fim de Semana, Todo Dia ou Ambos")
-        return cleaned
+        normalized = " ".join(cleaned.lower().replace("-", " ").split())
+        canonical = {
+            "semana": "semana",
+            "dia de semana": "semana",
+            "fim de semana": "fim de semana",
+            "ambos": "ambos",
+            "todo dia": "ambos",
+            "todo dias": "ambos",
+        }
+        if normalized not in canonical:
+            raise ValueError("Disponibilidade deve ser Semana, Fim de Semana ou Ambos")
+        return canonical[normalized]
 
 
 class PersonCreate(PersonBase):
@@ -59,6 +66,7 @@ class PersonUpdate(BaseModel):
     email: Optional[str] = None
     observations: Optional[str] = None
     is_active: Optional[bool] = None
+    fixed_schedule_ids: Optional[list[int]] = None
     fixed_weekdays: list[int] = Field(default_factory=list)
 
     @field_validator("fixed_weekdays", mode="before")

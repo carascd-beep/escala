@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from app.database import get_db
 from app.services import person_service, mass_service, scale_service
 from app.models.person import Person, ServerType
+from collections import Counter
 from app.models.mass import Mass, DayOfWeek
 from app.models.scale import Scale, ScaleAssignment, AssignmentStatus
 from app.utils.security import decode_access_token
@@ -137,10 +138,19 @@ async def admin_persons(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/login", status_code=303)
     
     persons = person_service.get_persons(db)
+    schedules = mass_service.get_mass_schedules(db, is_active=True)
+    both_experience_counts = Counter(
+        person.experience
+        for person in persons
+        if person.is_active and (person.availability or "").strip().lower() == "ambos"
+        and person.experience is not None
+    )
     return templates.TemplateResponse(request=request, name="admin/persons.html", context={
         "request": request,
         "user": user,
         "persons": persons,
+        "schedules": schedules,
+        "both_experience_counts": dict(both_experience_counts),
         "server_types": ServerType
     })
 

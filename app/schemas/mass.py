@@ -1,5 +1,5 @@
 """Schemas de Missas"""
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import date, datetime
 from app.models.mass import DayOfWeek
@@ -10,6 +10,7 @@ class MassScheduleBase(BaseModel):
     time: str
     description: Optional[str] = None
     is_active: bool = True
+    participants_count: int = Field(default=2, ge=1, le=10)
 
 
 class MassScheduleCreate(MassScheduleBase):
@@ -21,6 +22,7 @@ class MassScheduleUpdate(BaseModel):
     time: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    participants_count: Optional[int] = Field(default=None, ge=1, le=10)
 
 
 class MassScheduleResponse(MassScheduleBase):

@@ -34,20 +34,26 @@ Base = declarative_base()
 def ensure_schema():
     """Adiciona colunas novas sem apagar dados existentes."""
     inspector = inspect(engine)
-    if "persons" not in inspector.get_table_names():
-        return
+    if "persons" in inspector.get_table_names():
+        existing = {column["name"] for column in inspector.get_columns("persons")}
+        additions = {
+            "birth_date": "DATE",
+            "availability": "VARCHAR(20)",
+            "experience": "INTEGER",
+            "fixed_weekdays": "VARCHAR(30)",
+        }
+        with engine.begin() as connection:
+            for name, column_type in additions.items():
+                if name not in existing:
+                    connection.execute(text(f"ALTER TABLE persons ADD COLUMN {name} {column_type}"))
+            connection.execute(text("UPDATE persons SET availability = 'ambos' WHERE lower(trim(availability)) IN ('todo dia', 'todo dias')"))
+            connection.execute(text("UPDATE persons SET availability = 'semana' WHERE lower(trim(availability)) = 'dia de semana'"))
 
-    existing = {column["name"] for column in inspector.get_columns("persons")}
-    additions = {
-        "birth_date": "DATE",
-        "availability": "VARCHAR(20)",
-        "experience": "INTEGER",
-        "fixed_weekdays": "VARCHAR(30)",
-    }
-    with engine.begin() as connection:
-        for name, column_type in additions.items():
-            if name not in existing:
-                connection.execute(text(f"ALTER TABLE persons ADD COLUMN {name} {column_type}"))
+    if "mass_schedules" in inspector.get_table_names():
+        schedule_columns = {column["name"] for column in inspector.get_columns("mass_schedules")}
+        if "participants_count" not in schedule_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE mass_schedules ADD COLUMN participants_count INTEGER NOT NULL DEFAULT 2"))
 
 
 def get_db():

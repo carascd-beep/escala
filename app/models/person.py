@@ -48,6 +48,19 @@ class Person(Base):
         fixed_schedule_ids = kwargs.pop("fixed_schedule_ids", None)
         fixed_weekdays = kwargs.pop("fixed_weekdays", None)
         super().__init__(**kwargs)
-        self.fixed_schedule_ids = fixed_schedule_ids or []
+        self._fixed_schedule_ids = fixed_schedule_ids or []
         if fixed_weekdays is not None:
             self.fixed_weekdays = ",".join(str(day) for day in fixed_weekdays)
+
+    @property
+    def fixed_schedule_ids(self) -> list[int]:
+        """Retorna IDs persistidos dos horários fixos da pessoa."""
+        schedules = self.fixed_schedules
+        if schedules:
+            return [schedule.id for schedule in schedules]
+        return list(getattr(self, "_fixed_schedule_ids", []))
+
+    @fixed_schedule_ids.setter
+    def fixed_schedule_ids(self, value):
+        """Mantém compatibilidade para objetos novos antes da associação existir."""
+        self._fixed_schedule_ids = list(value or [])

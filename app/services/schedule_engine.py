@@ -42,14 +42,38 @@ def _scope_matches(scope: str, mass_date: date) -> bool:
 
 
 def _fixed_matches(person: Person, mass: Mapping[str, object]) -> bool:
+    """Restringe pessoas vinculadas a um horário ao dia e horário exatos."""
     ids = getattr(person, "fixed_schedule_ids", [])
-    return not ids or mass.get("schedule_id") in ids
+    if not ids:
+        return True
+    return mass.get("schedule_id") in ids and _fixed_weekday_matches(person, mass["date"])
 
 
 def _fixed_weekday_matches(person: Person, mass_date: date) -> bool:
     raw = getattr(person, "fixed_weekdays", None) or ""
     fixed = {int(value) for value in str(raw).split(",") if value.strip().isdigit()}
     return not fixed or mass_date.weekday() in fixed
+
+
+def _is_exact_fixed_assignment(person: Person, mass: Mapping[str, object]) -> bool:
+    """Identifica a exceção mensal por dia da semana e horário."""
+    return bool(getattr(person, "fixed_schedule_ids", [])) and _fixed_matches(person, mass)
+
+
+def _monthly_weekday_allowed(
+    person: Person,
+    mass: Mapping[str, object],
+    assignments: Mapping[int, tuple[Person, ...]],
+    mass_by_id: Mapping[int, Mapping[str, object]],
+) -> bool:
+    if mass["date"].weekday() >= 5 or _is_exact_fixed_assignment(person, mass):
+        return True
+    month = (mass["date"].year, mass["date"].month)
+    return not any(
+        any(existing is person or (existing.id is not None and existing.id == person.id) for existing in assignment)
+        and (mass_by_id[mass_id]["date"].year, mass_by_id[mass_id]["date"].month) == month
+        for mass_id, assignment in assignments.items()
+    )
 
 
 def generate_assignments(
@@ -61,13 +85,19 @@ def generate_assignments(
     params = parameters or ScheduleParameters()
     active = [p for p in people if p.is_active and p.experience in (0, 1, 2, 3)]
     selected = [m for m in masses if _scope_matches(params.scope, m["date"])]
+    mass_by_id = {int(m["id"]): m for m in selected}
     assignments: dict[int, tuple[Person, ...]] = {}
     usage: Counter[int] = Counter()
     function_priority = params.priority_server_types or _DEFAULT_FUNCTION_PRIORITY
 
     for mass in sorted(selected, key=lambda item: item["date"]):
-        eligible = [p for p in active if _availability_matches(p, mass["date"]) and _fixed_matches(p, mass)]
-        if len(eligible) < params.participants_per_scale or not any(p.experience == 3 for p in eligible):
+        eligible = [p for p in active if _availability_matches(p, mass["date"])
+                    and _fixed_matches(p, mass)
+                    and _monthly_weekday_allowed(p, mass, assignments, mass_by_id)]
+        target_count = int(mass.get("participants_count") or params.participants_per_scale)
+        if target_count < 1:
+            raise ValueError("A quantidade de participantes do horário deve ser positiva")
+        if len(eligible) < target_count or not any(p.experience == 3 for p in eligible):
             raise ValueError(f"não foi possível formar equipe válida para a missa {mass['id']}")
 
         def key(person: Person):
@@ -78,7 +108,7 @@ def generate_assignments(
 
         if params.participants_by_server_type:
             required = params.participants_by_server_type
-            if sum(required.values()) != params.participants_per_scale:
+            if sum(required.values()) != target_count:
                 raise ValueError("A soma das quantidades por função deve ser igual ao total")
             chosen = []
             for server_type, quantity in required.items():
@@ -87,7 +117,7 @@ def generate_assignments(
                     raise ValueError(f"não foi possível atender a quantidade da função {server_type}")
                 chosen.extend(candidates[:quantity])
         else:
-            chosen = sorted(eligible, key=key)[:params.participants_per_scale]
+            chosen = sorted(eligible, key=key)[:target_count]
 
         if not any(p.experience == 3 for p in chosen):
             high = min((p for p in eligible if p.experience == 3), key=key)
@@ -106,11 +136,23 @@ def generate_assignments(
         for person in chosen:
             usage[person.id or id(person)] += 1
 
-    missing = [p for p in active if usage[p.id or id(p)] == 0 and any(_availability_matches(p, m["date"]) for m in selected)]
+    missing = []
+    for person in active:
+        if usage[person.id or id(person)] != 0:
+            continue
+        if any(
+            _availability_matches(person, mass["date"])
+            and _fixed_matches(person, mass)
+            and _monthly_weekday_allowed(person, mass, assignments, mass_by_id)
+            for mass in selected
+        ):
+            missing.append(person)
     if missing:
         for person in missing:
-            candidates = [(mass_id, next(m for m in selected if int(m["id"]) == mass_id)) for mass_id in assignments]
-            candidates = [item for item in candidates if _availability_matches(person, item[1]["date"]) and _fixed_matches(person, item[1])]
+            candidates = [(mass_id, mass_by_id[mass_id]) for mass_id in assignments]
+            candidates = [item for item in candidates if _availability_matches(person, item[1]["date"])
+                          and _fixed_matches(person, item[1])
+                          and _monthly_weekday_allowed(person, item[1], assignments, mass_by_id)]
             if not candidates:
                 raise ValueError(f"não foi possível escalar todos os disponíveis: {person.display_name}")
             mass_id, mass = min(candidates, key=lambda item: (0 if _fixed_weekday_matches(person, item[1]["date"]) else 1, len(assignments[item[0]]), item[1]["date"]))

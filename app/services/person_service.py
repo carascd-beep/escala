@@ -6,6 +6,20 @@ from sqlalchemy.orm import Session
 from app.models.person import Person, ServerType
 
 
+def _canonical_availability(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = value.strip().lower().replace("-", " ")
+    return {
+        "semana": "semana",
+        "dia de semana": "semana",
+        "fim de semana": "fim de semana",
+        "todo dia": "ambos",
+        "todo dias": "ambos",
+        "ambos": "ambos",
+    }.get(normalized, value.strip())
+
+
 def get_persons(db: Session, skip: int = 0, limit: int = 100,
                 server_type: Optional[ServerType] = None,
                 is_active: Optional[bool] = None) -> List[Person]:
@@ -36,7 +50,7 @@ def create_person(db: Session, full_name: str, display_name: str,
         server_type=server_type,
         phone=phone,
         birth_date=birth_date,
-        availability=availability,
+        availability=_canonical_availability(availability),
         experience=experience,
         email=email,
         observations=observations,
@@ -50,6 +64,7 @@ def create_person(db: Session, full_name: str, display_name: str,
         person.fixed_schedules = db.query(MassSchedule).filter(
             MassSchedule.id.in_(fixed_schedule_ids)
         ).all()
+        person.fixed_schedule_ids = fixed_schedule_ids
         db.commit()
         db.refresh(person)
     return person
@@ -65,12 +80,15 @@ def update_person(db: Session, person_id: int, **kwargs) -> Optional[Person]:
     fixed_weekdays = kwargs.pop("fixed_weekdays", None)
     for key, value in kwargs.items():
         if value is not None:
+            if key == "availability":
+                value = _canonical_availability(value)
             setattr(person, key, value)
     if fixed_schedule_ids is not None:
         from app.models.mass import MassSchedule
         person.fixed_schedules = db.query(MassSchedule).filter(
             MassSchedule.id.in_(fixed_schedule_ids)
         ).all()
+        person.fixed_schedule_ids = fixed_schedule_ids
     if fixed_weekdays is not None:
         person.fixed_weekdays = ",".join(str(day) for day in fixed_weekdays)
 

@@ -24,6 +24,7 @@ class MassSchedule(Base):
     id = Column(Integer, primary_key=True, index=True)
     day_of_week = Column(Enum(DayOfWeek), nullable=False)
     time = Column(String(5), nullable=False)  # Formato HH:MM
+    participants_count = Column(Integer, nullable=False, default=2)
     is_active = Column(Boolean, default=True)
     description = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

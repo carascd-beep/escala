@@ -90,7 +90,8 @@ def create_horario(schedule: MassScheduleCreate, db: Session = Depends(get_db)):
         db,
         day_of_week=schedule.day_of_week,
         time=schedule.time,
-        description=schedule.description
+        description=schedule.description,
+        participants_count=schedule.participants_count
     )
 
 
